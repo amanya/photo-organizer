@@ -1,14 +1,16 @@
 #!/usr/bin/env python
 
-import sys
+import exifread
+import getopt
 import os
 import re
-import getopt
-import exifread
+import shutil
+import sys
+
 from dateutil.parser import parse
 
 def make_destination_path(output_dir, date):
-    return os.path.join(output_dir, str(date.year), str(date.month), str(date.day))
+    return os.path.join(output_dir, str(date.year), str("%02d" % date.month), str("%02d" % date.day))
 
 def ensure_destination_is_created(destination_dir):
     try:
@@ -24,10 +26,11 @@ def is_bad_date(date):
     return False
 
 def fix_date(date):
-    return date[0:4] + '/' + date[5:6] + '/' + date[6:]
+    return date[0:4] + '/' + date[5:7] + '/' + date[8:]
 
 def copy_file(src, dst):
     print "copying %s to %s" % (src, dst)
+    shutil.copy(src, dst)
 
 def process(input_dir, output_dir):
     for root, dirs, files in os.walk(input_dir):
@@ -36,17 +39,17 @@ def process(input_dir, output_dir):
             f = open(input_file, 'rb')
             tags = exifread.process_file(f)
             try:
-                str_date = tags['Image DateTime']
-                print type(str_date)
+                str_date = tags['Image DateTime'].printable
                 if is_bad_date(str_date):
                     str_date = fix_date(str_date)
                 date = parse(str_date)
             except KeyError:
                 print "Not processing %s" % input_file
+                destination_path = os.path.join(output_dir, 'MANUAL_PROCESSING')
             else:
                 destination_path = make_destination_path(output_dir, date)
-                ensure_destination_is_created(destination_path)
-                copy_file(input_file, os.path.join(destination_path, file))
+            ensure_destination_is_created(destination_path)
+            copy_file(input_file, os.path.join(destination_path, file))
 
 def usage(script_name):
     print "%s -i <input_dir> -o <output_dir>" % script_name
